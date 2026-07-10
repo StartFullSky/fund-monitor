@@ -68,7 +68,7 @@ def check_limit_up_pool(state):
 
 def main():
     if not is_trading_time() and '--force' not in sys.argv:
-        print("非交易时间，跳过")
+        print("skip")
         return
 
     state = load_state()
