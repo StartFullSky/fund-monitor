@@ -10,7 +10,7 @@ from datetime import datetime
 
 def main():
     if not is_pre_market() and '--force' not in sys.argv:
-        print("非盘前时间，跳过")
+        print("skip")
         return
 
     now = now_str()
