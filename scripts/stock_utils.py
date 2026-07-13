@@ -26,12 +26,15 @@ def load_config():
 load_config()
 
 # ============ Bark 推送 ============
-def send_bark(title, content):
+def send_bark(title, content, **kwargs):
+    """发送 Bark 推送。支持额外参数如 group, sound, url, icon 等。"""
     if not BARK_KEY:
         print(f"❌ Bark未配置\n{title}\n{content}")
         return False
     url = f'https://api.day.app/{BARK_KEY}'
-    body = json.dumps({'title': title, 'body': content}, ensure_ascii=False).encode('utf-8')
+    payload = {'title': title, 'body': content, 'group': 'fund-monitor'}
+    payload.update(kwargs)
+    body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
     req = Request(url, data=body, method='POST')
     req.add_header('Content-Type', 'application/json; charset=utf-8')
     req.add_header('User-Agent', 'Mozilla/5.0')
@@ -44,10 +47,11 @@ def send_bark(title, content):
 
 # ============ AKShare 股票数据 ============
 def _tencent_quote(code):
-    """腾讯行情接口（轻量、稳定）"""
-    # SH: 6开头的股票, 5开头的ETF, 000开头的指数
-    # SZ: 0/3开头的股票, 15开头的ETF
-    if code.startswith('6') or code.startswith('5') or code.startswith('000'):
+    """腾讯行情接口（轻量、稳定）。支持 A股 和 港股（5位数字前缀）。"""
+    # 港股：5位数字，腾讯格式 hk{code}
+    if code.isdigit() and len(code) == 5:
+        prefix = 'hk'
+    elif code.startswith('6') or code.startswith('5') or code.startswith('000'):
         prefix = 'sh'
     else:
         prefix = 'sz'
@@ -56,8 +60,31 @@ def _tencent_quote(code):
         resp = urlopen(url, timeout=8)
         raw = resp.read().decode('gbk', errors='ignore')
         parts = raw.split('~')
-        if len(parts) < 40:
+        if len(parts) < 35:
             return None
+        # 港股字段布局与A股略有不同
+        if prefix == 'hk':
+            name = parts[1] if len(parts) > 1 else code
+            try:
+                price = float(parts[3])
+                prev_close = float(parts[4])
+                change_pct = float(parts[32]) if parts[32] else 0
+                change_amt = float(parts[31]) if parts[31] else 0
+                volume = float(parts[6]) if parts[6] else 0
+                amount = float(parts[37]) if len(parts) > 37 and parts[37] else 0
+            except (ValueError, IndexError):
+                return None
+            return {
+                'code': code, 'name': name,
+                'price': price, 'prev_close': prev_close,
+                'open': float(parts[5]) if parts[5] else price,
+                'volume': volume, 'amount': amount,
+                'high': float(parts[33]) if len(parts) > 33 and parts[33] else price,
+                'low': float(parts[34]) if len(parts) > 34 and parts[34] else price,
+                'change_pct': change_pct, 'change_amt': change_amt,
+                'turnover': float(parts[38]) if len(parts) > 38 and parts[38] else 0,
+                'market': 'HK',
+            }
         return {
             'code': code, 'name': parts[1],
             'price': float(parts[3]), 'prev_close': float(parts[4]),
@@ -68,6 +95,7 @@ def _tencent_quote(code):
             'change_amt': float(parts[31]) if parts[31] else 0,
             'amount': float(parts[37]) if parts[37] else 0,
             'turnover': float(parts[38]) if parts[38] else 0,
+            'market': 'A',
         }
     except Exception:
         return None
