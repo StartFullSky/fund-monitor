@@ -16,7 +16,6 @@ FUNDS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'my_funds.
 ETF_MAP = {
     '007044': 'sh510300',   # 沪深300ETF 华泰柏瑞
     '011612': 'sh588000',   # 科创50ETF 华夏
-    '013308': 'sh513180',   # 恒生科技ETF 华夏
     '012734': 'sz159819',   # 人工智能ETF 易方达
     '018345': 'sh562500',   # 机器人ETF 华夏
     '020900': 'sh515880',   # 通信ETF 国泰
