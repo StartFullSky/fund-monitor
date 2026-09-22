@@ -14,15 +14,13 @@ FUNDS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'my_funds.
 
 # 基金代码 → 场内ETF（腾讯代码），ETF 与基金跟踪同一指数，盘中涨跌即基金估算涨跌
 ETF_MAP = {
-    '007044': 'sh510300',   # 沪深300ETF 华泰柏瑞
     '011612': 'sh588000',   # 科创50ETF 华夏
     '012734': 'sz159819',   # 人工智能ETF 易方达
     '018345': 'sh562500',   # 机器人ETF 华夏
-    '020900': 'sh515880',   # 通信ETF 国泰
     '008282': 'sh512760',   # 芯片ETF 国泰
 }
 # 美股 QDII：A股 14:40 时美股未开盘，无当日估算
-US_QDII = {'017641', '019547', '016452'}
+US_QDII = {'017641', '019547', '016452', '017091'}
 
 
 def tencent_quote(tencent_code):
