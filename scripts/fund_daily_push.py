@@ -9,6 +9,7 @@ from urllib.request import urlopen, Request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from stock_utils import send_bark, now_str
+import hithink_client
 
 FUNDS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'my_funds.json')
 
@@ -46,7 +47,16 @@ def tencent_quote(tencent_code):
 
 
 def fund_latest_nav(code):
-    """天天基金历史净值，取最后一条（QDII 显示最近净值用）"""
+    """基金最新净值：同花顺优先，天天基金JS兜底（QDII 显示最近净值用）"""
+    if hithink_client.is_available():
+        nav = hithink_client.fund_nav_latest(code)
+        if nav and nav.get('nav') is not None:
+            return nav
+    return fund_latest_nav_eastmoney(code)
+
+
+def fund_latest_nav_eastmoney(code):
+    """天天基金历史净值兜底，取最后一条"""
     try:
         url = f'https://fund.eastmoney.com/pingzhongdata/{code}.js'
         req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -62,6 +72,17 @@ def fund_latest_nav(code):
         return {'nav': last['y'], 'date': dt}
     except Exception:
         return None
+
+
+def etf_quote(tencent_code):
+    """场内ETF行情：同花顺快照优先，腾讯兜底"""
+    if hithink_client.is_available():
+        code6 = re.sub(r'\D', '', tencent_code)
+        snap = hithink_client.etf_snapshot(code6)
+        if snap and snap.get('price') is not None:
+            return {'name': '', 'price': float(snap['price']),
+                    'change_pct': float(snap.get('change_pct') or 0), 'time': ''}
+    return tencent_quote(tencent_code)
 
 
 def is_holiday_today():
@@ -98,7 +119,7 @@ def main():
         if not etf:
             results.append((code, name, None, "无估算源"))
             continue
-        info = tencent_quote(etf)
+        info = etf_quote(etf)
         if not info:
             results.append((code, name, None, "行情获取失败"))
             continue

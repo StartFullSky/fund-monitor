@@ -1,6 +1,7 @@
 # Runtime state files
 *_state.json
 *_last_price.json
+hithink_cache.json
 
 # Personal config (user-specific data)
 my_funds.json

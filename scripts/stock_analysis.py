@@ -71,7 +71,7 @@ def analyze_stock(code):
         f"趋势: {trend}",
         f"MA5: {ma5:.2f}  MA10: {ma10:.2f}  MA20: {ma20:.2f}",
         f"",
-        f"近5日: {pct(chg_5d/100)}  近20日: {pct(chg_20d/100)}",
+        f"近5日: {pct(chg_5d)}  近20日: {pct(chg_20d)}",
         f"RSI(14): {rsi:.1f}  {'⚠️超买' if rsi > 70 else '⚠️超卖' if rsi < 30 else '正常'}",
         f"MACD DIF: {dif:.2f}  {'🔴多头' if dif > 0 else '🟢空头'}",
         f"",

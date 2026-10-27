@@ -5,7 +5,8 @@
 """
 import sys, os, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from stock_utils import send_bark, pct, now_str, is_trading_time, _tencent_quote
+from stock_utils import send_bark, pct, now_str, is_trading_day, is_trading_time, _tencent_quote
+import hithink_client
 
 # ============ 基金持仓映射 ============
 # 每个板块的关键股票（从基金重仓股中提取的高频标的）
@@ -59,17 +60,44 @@ def save_state(state):
     with open(STATE_FILE, 'w', encoding='utf-8') as f:
         json.dump(state, f, ensure_ascii=False)
 
+def merge_holdings(fund_codes, base_stocks):
+    """同花顺基金真实重仓股合并进配置的核心股票（主数据源；失败保留配置兜底）"""
+    merged = dict(base_stocks)
+    if not hithink_client.is_available():
+        return merged
+    for fc in fund_codes.split('/'):
+        fc = fc.strip()
+        if not fc:
+            continue
+        hold = hithink_client.fund_holdings(fc)
+        if not hold:
+            continue
+        for s in hold.get('stocks', []):
+            code = s.get('code')
+            if code and code.isdigit() and code not in merged:
+                merged[code] = s.get('name') or code
+    return merged
+
+
 def check_sector(sector_name, sector_cfg, state):
     """检查一个板块的异动，返回告警列表"""
     alerts = []
-    stocks = sector_cfg['stocks']
+    stocks = merge_holdings(sector_cfg['funds'], sector_cfg['stocks'])
     threshold = sector_cfg['alert_pct']
     fund_codes = sector_cfg['funds']
 
+    # A股行情：同花顺批量快照优先，腾讯兜底
+    hithink_quotes = {}
+    if hithink_client.is_available():
+        try:
+            hithink_quotes = hithink_client.a_share_quotes([c for c in stocks if c.isdigit()])
+        except Exception:
+            hithink_quotes = {}
+
     for code, name in stocks.items():
         if code.isdigit():
-            # A股，用腾讯接口
-            info = _tencent_quote(code)
+            # A股：同花顺优先，腾讯兜底
+            info = hithink_quotes.get(code) or _tencent_quote(code)
         else:
             # 美股，跳过（非交易时段）
             continue
@@ -77,7 +105,9 @@ def check_sector(sector_name, sector_cfg, state):
         if not info:
             continue
 
-        change = info['change_pct']
+        change = info.get('change_pct')
+        if change is None:
+            continue
         state_key = f"{code}"
         last = state.get(state_key, {}).get('pct', 0)
         last_alert = state.get(state_key, {}).get('alerted_at', '')
@@ -88,7 +118,7 @@ def check_sector(sector_name, sector_cfg, state):
 
         if abs(change) >= threshold and abs(change) - abs(last) >= 0.5:
             should_alert = True
-            reason = f"{'📈 大涨' if change > 0 else '📉 大跌'} {pct(change/100)}"
+            reason = f"{'📈 大涨' if change > 0 else '📉 大跌'} {pct(change)}"
         elif abs(change) >= 9.9 and abs(last) < 9.9:
             should_alert = True
             reason = f"{'🔴 涨停' if change > 0 else '🟢 跌停'}！"
@@ -112,9 +142,11 @@ def check_sector(sector_name, sector_cfg, state):
     return alerts
 
 def main():
-    if not is_trading_time() and '--force' not in sys.argv:
-        print("非交易时间，跳过")
-        return
+    if '--force' not in sys.argv:
+        if not is_trading_day():
+            return  # 周末/法定节假日休市，静默跳过（不输出，避免推送到飞书）
+        if not is_trading_time():
+            return  # 非交易时段，静默跳过
 
     state = load_state()
     all_alerts = {}  # sector -> alerts

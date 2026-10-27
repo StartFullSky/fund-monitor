@@ -143,7 +143,9 @@ def get_market_overview():
                 continue
             result.append({
                 'name': parts[1], 'code': parts[2],
-                'price': float(parts[3]), 'change_pct': float(parts[32]) if parts[32] else 0
+                'price': float(parts[3]), 'change_pct': float(parts[32]) if parts[32] else 0,
+                'prev_close': float(parts[4]) if parts[4] else 0,
+                'change_amt': float(parts[31]) if parts[31] else 0,
             })
         return result
     except Exception as e:
@@ -221,10 +223,25 @@ def now_str():
 def pct(value):
     return f"{'+' if value >= 0 else ''}{value:.2f}%"
 
+def is_trading_day(d=None):
+    """判断是否为A股交易日：周一至周五且非法定节假日。
+    周末（含调休上班的周末）A股一律休市；法定节假日用 chinese_calendar 判断。"""
+    if d is None:
+        d = datetime.now().date()
+    if d.weekday() >= 5:
+        return False
+    try:
+        import chinese_calendar
+        return not chinese_calendar.is_holiday(d)
+    except Exception:
+        # 无节假日数据（未安装或超出支持年份）时按普通工作日处理
+        return True
+
+
 def is_trading_time():
     """判断当前是否为交易时间"""
     now = datetime.now()
-    if now.weekday() >= 5:
+    if not is_trading_day():
         return False
     t = now.time()
     from datetime import time
@@ -235,7 +252,7 @@ def is_trading_time():
 def is_pre_market():
     """判断是否为盘前时间（9:00-9:30）"""
     now = datetime.now()
-    if now.weekday() >= 5:
+    if not is_trading_day():
         return False
     t = now.time()
     from datetime import time
