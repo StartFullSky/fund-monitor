@@ -20,3 +20,6 @@ __pycache__/
 
 # Upload helper
 upload_all.py
+
+# Backup
+skills_backup/
