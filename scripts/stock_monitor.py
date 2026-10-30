@@ -27,7 +27,8 @@ def check_watchlist(state):
     watchlist = load_watchlist()
     for code in watchlist:
         info = get_stock_realtime(code)
-        if not info or 'error' in info:
+        if not info or 'error' in info or not info.get('is_realtime', True):
+            # 日线回退数据可能滞后，不能用于盘中异动告警。
             continue
         name = info['name']
         pct_chg = info['change_pct']
