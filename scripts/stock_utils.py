@@ -11,7 +11,14 @@ from urllib.request import urlopen, Request, ProxyHandler, build_opener
 # ============ 配置 ============
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config.yaml')
 BARK_KEY = ''
-DB_CONFIG = {'host': '127.0.0.1', 'port': 3306, 'user': 'root', 'password': '123456', 'db': 'stock_agent', 'charset': 'utf8mb4'}
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST', '127.0.0.1'),
+    'port': int(os.getenv('DB_PORT', '3306')),
+    'user': os.getenv('DB_USERNAME', 'stock_agent'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'db': os.getenv('DB_NAME', 'stock_agent'),
+    'charset': 'utf8mb4',
+}
 
 def load_config():
     global BARK_KEY
@@ -227,7 +234,7 @@ def is_trading_day(d=None):
     """判断是否为A股交易日：周一至周五且非法定节假日。
     周末（含调休上班的周末）A股一律休市；法定节假日用 chinese_calendar 判断。"""
     if d is None:
-        d = datetime.now().date()
+        d = china_now().date()
     if d.weekday() >= 5:
         return False
     try:
